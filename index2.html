@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Handlebars — Users List (Tailwind + DaisyUI)</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- DaisyUI -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@2.20.0/dist/full.css" rel="stylesheet" />
+  <!-- Handlebars -->
+  <script src="https://cdn.jsdelivr.net/npm/handlebars@latest/dist/handlebars.min.js"></script>
+
+  <style>
+    .admin-glow { box-shadow: 0 6px 20px rgba(250,180,30,0.15); }
+  </style>
+</head>
+
+<body class="bg-base-200 min-h-screen p-6">
+  <div class="max-w-4xl mx-auto">
+
+    <div id="header-root"></div>
+
+    <main class="mt-6">
+      <div class="card bg-base-100 shadow-md p-4">
+        <div class="flex gap-3 items-center justify-between">
+          <div class="flex gap-3 items-center">
+            <input id="search" placeholder="Search by name or email..." class="input input-bordered input-sm w-64" />
+            <select id="roleFilter" class="select select-sm select-bordered w-40">
+              <option value="all">Show: All roles</option>
+              <option value="admin">Admins only</option>  
+              <option value="user">Users only</option>
+            </select>
+          </div>
+          <div>
+            <button id="refreshBtn" class="btn btn-ghost btn-sm">Refresh</button>
+          </div>
+        </div>
+
+        <section class="mt-4" id="users-root"></section>
+      </div>
+    </main>
+
+    <footer class="mt-6 text-center text-xs text-base-content/60">Tools used: Tailwindcss, Handlebars, JSON and DaisyUI - BCA Project </footer>
+  </div>
+
+  <!--  JSON Data  -->
+  <script id="users-data" type="application/json">
+  [
+    { "id": 1, "name": "Priya Kapoor", "email": "priya.kapoor@example.com", "role": "admin", "joined": "2024-08-21" },
+    { "id": 2, "name": "Arjun Verma", "email": "arjun.verma@example.com", "role": "user", "joined": "2025-01-11" },
+    { "id": 3, "name": "Sara Ali", "email": "sara.ali@example.com", "role": "user", "joined": "2024-11-03" },
+    { "id": 4, "name": "Rohan Mehta", "email": "rohan.mehta@example.com", "role": "admin", "joined": "2023-06-19" },
+    { "id": 5, "name": "Maya Singh", "email": "maya.singh@example.com", "role": "user", "joined": "2024-02-27" }
+  ]
+  </script>
+
+  <script id="ph-header" type="text/x-handlebars-template">
+    <header class="flex items-center gap-4">
+      <div>
+        <h1 class="text-xl font-bold">Users Dashboard</h1>
+        <p class="text-sm text-base-content/60">Rendering users from JSON via Handlebars — admin roles are highlighted.</p>
+      </div>
+    </header>
+  </script>
+
+  <script id="ph-usercard" type="text/x-handlebars-template">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {{#each users}}
+        <article class="card card-compact bg-base-100 border {{#isAdmin role}}border-yellow-300 admin-glow{{else}}border-base-200{{/isAdmin}} p-3">
+          <div class="card-body p-2">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="font-semibold">{{name}} <span class="text-xs text-base-content/60">(#{{id}})</span></h3>
+                <div class="text-sm text-base-content/70">{{email}}</div>
+                <div class="text-xs mt-2">Joined: {{joined}}</div>
+              </div>
+              <div class="text-right">
+                {{#isAdmin role}}
+                  <div class="badge badge-warning">ADMIN</div>
+                {{else}}
+                  <div class="badge">USER</div>
+                {{/isAdmin}}
+                <div class="text-xs mt-2">Role: <span class="font-medium">{{role}}</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      {{/each}}
+    </div>
+  </script>
+
+  <script id="app-template" type="text/x-handlebars-template">
+    {{> header}}
+    <section class="mt-4">
+      {{> usercard users=users}}
+    </section>
+  </script>
+
+  <!-- ======= APP LOGIC ======= -->
+  <script>
+    // Parse data
+    const users = JSON.parse(document.getElementById('users-data').textContent);
+
+    function registerPartial(id, name) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      Handlebars.registerPartial(name, el.innerHTML);
+    }
+    registerPartial('ph-header', 'header');
+    registerPartial('ph-usercard', 'usercard');
+
+    Handlebars.registerHelper('isAdmin', function(role, options) {
+    
+      if (role === 'admin') {
+        return options.fn(this);
+      }
+      return options.inverse(this);
+    });
+
+    // Compile main template
+    const appSrc = document.getElementById('app-template').innerHTML;
+    const appTpl = Handlebars.compile(appSrc);
+
+    // render function with filters
+    function render(filter = { q: '', role: 'all' }) {
+      const q = filter.q.trim().toLowerCase();
+      const role = filter.role;
+      const filtered = users.filter(u => {
+        const matchesQ = q === '' || (u.name + ' ' + u.email).toLowerCase().includes(q);
+        const matchesRole = role === 'all' || u.role === role;
+        return matchesQ && matchesRole;
+      });
+
+      const html = appTpl({ users: filtered });
+      const headerHtml = Handlebars.compile(document.getElementById('ph-header').innerHTML)();
+      document.getElementById('header-root').innerHTML = headerHtml;
+
+      document.getElementById('users-root').innerHTML = html;
+    }
+
+    render();
+
+    document.getElementById('search').addEventListener('input', (e) => {
+      const q = e.target.value;
+      const role = document.getElementById('roleFilter').value;
+      render({ q, role });
+    });
+
+    document.getElementById('roleFilter').addEventListener('change', (e) => {
+      const q = document.getElementById('search').value;
+      render({ q, role: e.target.value });
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', () => render({ q: document.getElementById('search').value, role: document.getElementById('roleFilter').value }));
+  </script>
+</body>
+</html>
